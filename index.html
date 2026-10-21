@@ -110,7 +110,7 @@ const actSec=()=>`<h3 style="margin:8px 0;color:#7c3aed">🌟 Aktivitas Adiwiyat
 const aktivitas=()=>`<h3 style="margin-bottom:8px;color:#7c3aed">🌟 Aktivitas Adiwiyata</h3>${S.acts.length?sortA().map(a=>actCard(a)).join(''):'<div class="panel">Belum ada aktivitas.</div>'}`;
 function home(){const n=S.plants.length,tot=S.plants.reduce((s,p)=>s+(p.jumlah||1),0),j=new Set(S.plants.map(p=>p.jenis)).size,fk=S.plants.filter(p=>p.fakta),f=fk.length?fk[Math.floor(Math.random()*fk.length)]:null;
 return `<div class="hero" style="${S.site.photo?`background-image:url(${S.site.photo})`:''}"><div><h2>🌱 Kenali Tanaman di Sekitarmu</h2></div></div>
-<div class="stats"><div class="stat s1"><b>🌳 ${n}</b>Tanaman</div><div class="stat s2"><b>🏷️ ${j}</b>Jenis</div><div class="stat s3"><b>🌲 ${tot}</b>Seluruhnya (jumlah tanaman di sekolah)</div></div>
+<div class="stats"><div class="stat s1"><b>🌳 ${n}</b>Tanaman</div><div class="stat s2"><b>🏷️ ${j}</b>Jenis</div><div class="stat s3"><b>🌲 ${tot}</b>tanaman di sekolah seluruhnya</div></div>
 <div class="panel fact"><h3>✨ Fakta Menarik</h3>${f?`<p><b>${esc(f.nama)}</b>: ${esc(f.fakta)}</p>`:'<p>Belum ada fakta. Tambahkan tanaman pertama untuk memulai.</p>'}<br><button class="btn w" onclick="route()">🔄 Fakta lainnya</button></div>${actSec()}`}
 
 function koleksi(){const ts=['Semua',...S.site.types],l=S.plants.filter(p=>S.f==='Semua'||p.jenis===S.f);
