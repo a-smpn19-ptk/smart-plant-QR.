@@ -121,7 +121,7 @@ function detail(id){const p=S.plants.find(x=>x.id===id);if(!p)return'<div class=
 if(!sessionStorage['v'+id]){sessionStorage['v'+id]=1;API.inc(id,'views');p.views=(p.views||0)+1}
 return `<a class="btn w" href="#/koleksi">⬅️ Kembali</a><br><br><img class="pimg" src="${p.foto}" alt="${esc(p.nama)}">
 <div class="ic"><button class="pill" id="lk" onclick="like('${id}')">${sessionStorage['l'+id]?'❤️':'🤍'} ${p.likes||0}</button><span class="pill">👁️ ${p.views}</span><button class="btn g" style="margin-left:auto" onclick="qr('${id}')">🖨️ Cetak QR</button></div>
-<div class="panel"><h2>${esc(p.nama)}</h2><i style="color:#64748b">${esc(p.ilmiah)}</i><br><span class="tag">🏷️ ${esc(p.jenis)}</span> <span class="tag" style="background:#fef3c7;color:#b45309">🔢 ${p.jumlah||1} tanaman di sekolah</span></div>
+<div class="panel"><h2>${esc(p.nama)}</h2><i style="color:#64748b">${esc(p.ilmiah)}</i><br><span class="tag">🏷️ ${esc(p.jenis)}</span> <span class="tag" style="background:#fef3c7;color:#b45309">🌲 ${p.jumlah||1} tanaman di sekolah</span></div>
 ${SEC.map(([e,t,k])=>p[k]?`<div class="panel"><h3>${e} ${t}${k=='fakta'?' – '+esc(p.nama):''}</h3><p>${esc(p[k])}</p></div>`:'').join('')}`}
 
 function like(id){if(sessionStorage['l'+id])return toast('Kamu sudah menyukai tanaman ini 💚');sessionStorage['l'+id]=1;const p=S.plants.find(x=>x.id===id);p.likes=(p.likes||0)+1;API.inc(id,'likes');$('#lk').innerHTML='❤️ '+p.likes;toast('Terima kasih! ❤️')}
