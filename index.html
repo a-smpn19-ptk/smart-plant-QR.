@@ -63,6 +63,10 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
 .gal{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;margin-bottom:8px}.gal img{flex:0 0 85%;scroll-snap-align:start;height:210px;object-fit:cover;border-radius:16px}
 .vf{position:relative;padding-top:56.25%;border-radius:16px;overflow:hidden;margin-bottom:8px}.vf iframe{position:absolute;inset:0;width:100%;height:100%;border:0}video{width:100%;border-radius:16px;margin-bottom:8px}
 .th{position:relative;display:inline-block;margin:0 8px 8px 0}.th img{width:70px;height:70px;object-fit:cover;border-radius:12px}.th b{position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border-radius:99px;width:20px;height:20px;font-size:11px;display:grid;place-items:center;cursor:pointer}
+.gw{position:relative;margin-bottom:8px}.gal{display:flex;gap:0;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:16px;margin-bottom:0}.gal::-webkit-scrollbar{display:none}
+.gal img{flex:0 0 100%;width:100%;height:auto;aspect-ratio:4/3;max-height:460px;object-fit:cover;scroll-snap-align:start;border-radius:0}
+.gn{position:absolute;top:10px;right:10px;background:#0009;color:#fff;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:600}
+.gb{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:99px;border:0;background:#fffd;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 2px 8px #0003}.gb.l{left:8px}.gb.r{right:8px}
 </style></head><body>
 <div class="app" id="v"></div>
 <nav><a href="#/" data-h=""><span>🏠</span>Beranda</a><a href="#/koleksi" data-h="koleksi"><span>🌿</span>Koleksi</a><a href="#/tambah" data-h="tambah"><span>➕</span>Tambah</a><a href="#/aktivitas" data-h="aktivitas"><span>🌟</span>Aktivitas</a><a href="#/tentang" data-h="tentang"><span>📖</span>Tentang</a></nav>
@@ -124,7 +128,17 @@ if(m=u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]
 if(m=u.match(/drive\.google\.com\/file\/d\/([\w-]+)/))return `<div class="vf"><iframe src="https://drive.google.com/file/d/${m[1]}/preview" allowfullscreen loading="lazy"></iframe></div>`;
 if(/\.(mp4|webm|ogg)(\?|$)/i.test(u))return `<video controls preload="metadata" src="${esc(u)}"></video>`;
 return `<a class="btn w" target="_blank" rel="noopener" href="${esc(u)}">▶️ Tonton video</a><br><br>`};
-const gal=a=>{const f=med(a);return f.length?`<div class="gal">${f.map(x=>`<img src="${x}" alt="" style="flex-basis:${f.length>1?'85%':'100%'}">`).join('')}</div>`:''};
+const gal=a=>{const f=med(a);if(!f.length)return'';return `<div class="gw"><div class="gal" onscroll="gs(this)">${f.map(x=>`<img src="${x}" alt="">`).join('')}</div>${f.length>1?`<span class="gn">1/${f.length}</span><button class="gb l" onclick="gm(this,-1)">‹</button><button class="gb r" onclick="gm(this,1)">›</button>`:''}</div>`};
+const gm=(b,d)=>{const g=b.parentNode.querySelector('.gal');g.scrollBy({left:d*g.clientWidth,behavior:'smooth'})};
+const gs=g=>{const n=g.parentNode.querySelector('.gn');if(n)n.textContent=(Math.round(g.scrollLeft/g.clientWidth)+1)+'/'+g.children.length};
+function dlQR(id){const p=S.plants.find(x=>x.id===id),t=document.createElement('div');
+new QRCode(t,{text:location.href.split('#')[0]+'#/tanaman/'+id,width:560,height:560,correctLevel:QRCode.CorrectLevel.M});
+const q=t.querySelector('canvas'),c=document.createElement('canvas');c.width=680;c.height=820;const x=c.getContext('2d');
+x.fillStyle='#fff';x.fillRect(0,0,680,820);x.drawImage(q,60,50,560,560);x.textAlign='center';
+x.fillStyle='#0f766e';x.font='bold 38px Poppins,sans-serif';x.fillText(p.nama,340,672,600);
+x.fillStyle='#64748b';x.font='italic 26px Poppins,sans-serif';x.fillText(p.ilmiah||'',340,712,600);
+x.font='22px Poppins,sans-serif';x.fillText('Smart Plant QR · SMPN 19 Kota Pontianak',340,775,620);
+c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='QR-'+(p.nama.replace(/[^\w]+/g,'-')||'tanaman')+'.jpg';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)},'image/jpeg',.95);toast('Mengunduh QR ✅')}
 const actCard=(a,c)=>`<div class="panel">${gal(a)}${c?((a.videos||[]).length?`<small>🎬 ${a.videos.length} video</small><br>`:''):(a.videos||[]).map(vid).join('')}<h3>${esc(a.judul)}</h3><small>📅 ${fd(a.tanggal)}</small><p class="${c?'cl':''}">${esc(a.desk)}</p></div>`;
 const actSec=()=>`<h3 style="margin:8px 0;color:#7c3aed">🌟 Aktivitas Adiwiyata</h3>${S.acts.length?sortA().slice(0,3).map(a=>actCard(a,1)).join('')+'<a class="btn g" href="#/aktivitas">Lihat semua aktivitas</a>':'<div class="panel">Belum ada aktivitas. Guru dapat menambahkannya lewat Mode Guru.</div>'}`;
 const aktivitas=()=>`<h3 style="margin-bottom:8px;color:#7c3aed">🌟 Aktivitas Adiwiyata</h3>${S.acts.length?sortA().map(a=>actCard(a)).join(''):'<div class="panel">Belum ada aktivitas.</div>'}`;
@@ -140,12 +154,12 @@ ${l.length?`<div class="grid">${l.map(card).join('')}</div>`:'<div class="panel"
 function detail(id){const p=S.plants.find(x=>x.id===id);if(!p)return'<div class="panel">Tanaman tidak ditemukan. <a href="#/koleksi">Kembali ke koleksi</a></div>';
 if(!sessionStorage['v'+id]){sessionStorage['v'+id]=1;API.inc(id,'views');p.views=(p.views||0)+1}
 return `<a class="btn w" href="#/koleksi">⬅️ Kembali</a><br><br><img class="pimg" src="${p.foto}" alt="${esc(p.nama)}">
-<div class="ic"><button class="pill" id="lk" onclick="like('${id}')">${sessionStorage['l'+id]?'❤️':'🤍'} ${p.likes||0}</button><span class="pill">👁️ ${p.views}</span><button class="btn g" style="margin-left:auto" onclick="qr('${id}')">🖨️ Cetak QR</button></div>
+<div class="ic"><button class="pill" id="lk" onclick="like('${id}')">${sessionStorage['l'+id]?'❤️':'🤍'} ${p.likes||0}</button><span class="pill">👁️ ${p.views}</span><button class="btn g" style="margin-left:auto" onclick="qr('${id}')">⬇️ Unduh QR</button></div>
 <div class="panel"><h2>${esc(p.nama)}</h2><i style="color:#64748b">${esc(p.ilmiah)}</i><br><span class="tag">🏷️ ${esc(p.jenis)}</span> <span class="tag" style="background:#fef3c7;color:#b45309">🔢 ${p.jumlah||1} tanaman di sekolah</span></div>
 ${SEC.map(([e,t,k])=>p[k]?`<div class="panel"><h3>${e} ${t}${k=='fakta'?' – '+esc(p.nama):''}</h3><p>${esc(p[k])}</p></div>`:'').join('')}`}
 
 function like(id){if(sessionStorage['l'+id])return toast('Kamu sudah menyukai tanaman ini 💚');sessionStorage['l'+id]=1;const p=S.plants.find(x=>x.id===id);p.likes=(p.likes||0)+1;API.inc(id,'likes');$('#lk').innerHTML='❤️ '+p.likes;toast('Terima kasih! ❤️')}
-function qr(id){const p=S.plants.find(x=>x.id===id);modal(`<h3>${esc(p.nama)}</h3><div id="qrc" style="display:flex;justify-content:center;margin:14px"></div><small>Pindai untuk melihat informasi tanaman</small><br><br><button class="btn g noprint" onclick="print()">🖨️ Cetak</button> <button class="btn w noprint" onclick="closeM()">Tutup</button>`);
+function qr(id){const p=S.plants.find(x=>x.id===id);modal(`<h3>${esc(p.nama)}</h3><div id="qrc" style="display:flex;justify-content:center;margin:14px"></div><small>Pindai untuk melihat informasi tanaman</small><br><br><button class="btn g noprint" onclick="dlQR('${id}')">⬇️ Unduh JPG</button> <button class="btn w noprint" onclick="closeM()">Tutup</button>`);
 new QRCode($('#qrc'),{text:location.href.split('#')[0]+'#/tanaman/'+id,width:200,height:200})}
 
 function tentang(){const a=S.site.about;return `<div class="panel" style="text-align:center"><h2 style="font-size:20px">🌿 SMART PLANT QR<br>SMPN 19 KOTA PONTIANAK</h2></div>
