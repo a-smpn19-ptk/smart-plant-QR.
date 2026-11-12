@@ -67,6 +67,7 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
 .gal img{flex:0 0 100%;width:100%;height:auto;aspect-ratio:4/3;max-height:460px;object-fit:cover;scroll-snap-align:start;border-radius:0}
 .gn{position:absolute;top:10px;right:10px;background:#0009;color:#fff;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:600}
 .gb{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:99px;border:0;background:#fffd;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 2px 8px #0003}.gb.l{left:8px}.gb.r{right:8px}
+.cv{width:100%;aspect-ratio:4/3;max-height:460px;object-fit:cover;border-radius:16px;display:block}
 </style></head><body>
 <div class="app" id="v"></div>
 <nav><a href="#/" data-h=""><span>🏠</span>Beranda</a><a href="#/koleksi" data-h="koleksi"><span>🌿</span>Koleksi</a><a href="#/tambah" data-h="tambah"><span>➕</span>Tambah</a><a href="#/aktivitas" data-h="aktivitas"><span>🌟</span>Aktivitas</a><a href="#/tentang" data-h="tentang"><span>📖</span>Tentang</a></nav>
@@ -75,6 +76,7 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
 <script>
 // ====== PENGATURAN FIREBASE (opsional, agar data dibagikan ke semua pengunjung) ======
 // Isi dengan konfigurasi dari Firebase Console. Jika dibiarkan null, data hanya tersimpan di perangkat masing-masing.
+const CLD=(window.CLOUDINARY_CONFIG&&window.CLOUDINARY_CONFIG.cloud&&window.CLOUDINARY_CONFIG.preset)?window.CLOUDINARY_CONFIG:null;
 const FB = window.FB_CONFIG || null; // konfigurasi Firebase ada di file config.js
 
 const DEF={main:{u:'kepalaadiwiyata',p:'smpn19jaya'},admins:[],logo:'',photo:'',
@@ -83,17 +85,17 @@ about:{def:'Smart Plant QR adalah program pendataan tanaman sekolah berbasis kod
 goal:'1. Mengenalkan jenis tanaman di lingkungan sekolah.\n2. Meningkatkan kepedulian warga sekolah terhadap lingkungan.\n3. Menjadikan lingkungan sekolah sebagai sumber belajar.',
 adi:'Smart Plant QR mendukung program Adiwiyata, yaitu program sekolah peduli dan berbudaya lingkungan, dengan menjadikan kebun dan tanaman sekolah sebagai media belajar yang menarik.'}};
 const SEC=[['💊','Manfaat','manfaat'],['🔍','Ciri-ciri','ciri'],['💧','Cara Perawatan','rawat'],['🏞️','Habitat','habitat'],['✨','Fakta Menarik','fakta'],['🌍','Peran Lingkungan','peran']];
-let fs=null;if(FB&&window.firebase){firebase.initializeApp(FB);fs=firebase.firestore()}
+let fs=null;if(FB&&window.firebase){firebase.initializeApp(FB);fs=firebase.firestore();fs.enablePersistence({synchronizeTabs:true}).catch(()=>{})}
 const L={get:k=>JSON.parse(localStorage.getItem(k)||'null'),set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))};
 const loc=f=>{const a=L.get('plants')||[];f(a);L.set('plants',a)};
 const API={
- async site(){const s=fs?(await fs.doc('app/site').get()).data():L.get('site');return{...DEF,...(s||{})}},
+ async site(o){const s=fs?(await fs.doc('app/site').get(o&&{source:o})).data():L.get('site');return{...DEF,...(s||{})}},
  async saveSite(s){fs?await fs.doc('app/site').set(s):L.set('site',s)},
- async plants(){if(fs)return(await fs.collection('plants').get()).docs.map(d=>({id:d.id,...d.data()}));return L.get('plants')||[]},
+ async plants(o){if(fs)return(await fs.collection('plants').get(o&&{source:o})).docs.map(d=>({id:d.id,...d.data()}));return L.get('plants')||[]},
  async add(p){fs?await fs.collection('plants').add(p):loc(a=>a.push({...p,id:'p'+Date.now()}))},
  async upd(id,p){fs?await fs.collection('plants').doc(id).update(p):loc(a=>Object.assign(a.find(x=>x.id===id),p))},
  async del(id){fs?await fs.collection('plants').doc(id).delete():L.set('plants',(L.get('plants')||[]).filter(x=>x.id!==id))},
- async acts(){if(fs)return(await fs.collection('activities').get()).docs.map(d=>({id:d.id,...d.data()}));return L.get('acts')||[]},
+ async acts(o){if(fs)return(await fs.collection('activities').get(o&&{source:o})).docs.map(d=>({id:d.id,...d.data()}));return L.get('acts')||[]},
  async addAct(a){fs?await fs.collection('activities').add(a):L.set('acts',[...(L.get('acts')||[]),{...a,id:'a'+Date.now()}])},
  async delAct(id){fs?await fs.collection('activities').doc(id).delete():L.set('acts',(L.get('acts')||[]).filter(x=>x.id!==id))},
  async updAct(id,a){fs?await fs.collection('activities').doc(id).update(a):L.set('acts',(L.get('acts')||[]).map(x=>x.id===id?{...x,...a}:x))},
@@ -101,25 +103,51 @@ const API={
 };
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=s=>document.querySelector(s);
-let S={site:DEF,plants:[],admin:JSON.parse(sessionStorage.admin||'null'),f:'Semua',acts:[]};
+let S={ready:false,site:DEF,plants:[],admin:JSON.parse(sessionStorage.admin||'null'),f:'Semua',acts:[]};
 const toast=m=>{const t=$('#toast');t.textContent=m;t.className='show';setTimeout(()=>t.className='',2200)};
 const modal=h=>{$('#modal').innerHTML='<div class="mbox">'+h+'</div>';$('#modal').style.display='flex'};
 const closeM=()=>$('#modal').style.display='none';
 const comp=(f,m=700)=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>{const i=new Image();i.onload=()=>{const k=Math.min(1,m/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(i,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',.72))};i.src=fr.result};fr.readAsDataURL(f)});
-async function load(){try{S.site=await API.site();S.plants=await API.plants();S.acts=await API.acts()}catch(e){console.error(e);toast('Gagal terhubung ke database')}route()}
+const th=(u,w)=>u&&u.indexOf('res.cloudinary.com')>0&&u.indexOf('/upload/')>0?u.replace('/upload/','/upload/w_'+w+',q_auto,f_auto/'):u;
+const cu=async d=>{const fd=new FormData();fd.append('file',d);fd.append('upload_preset',CLD.preset);
+try{const r=await fetch('https://api.cloudinary.com/v1_1/'+CLD.cloud+'/image/upload',{method:'POST',body:fd}),j=await r.json();if(!j.secure_url)throw new Error(j.error&&j.error.message||'gagal');return j.secure_url}
+catch(e){toast('Gagal mengunggah foto ❌');throw e}};
+const up=async(f,m)=>CLD?cu(await comp(f,1200)):comp(f,m);
+const isD=u=>typeof u=='string'&&u.startsWith('data:');
+const pend=()=>S.plants.filter(p=>isD(p.foto)).length+S.acts.reduce((n,a)=>n+med(a).filter(isD).length,0)+['logo','photo'].filter(k=>isD(S.site[k])).length;
+async function migrate(){if(!CLD)return;$('#mgb').disabled=true;const say=t=>$('#mg').textContent=t;let i=0;const t=pend();
+try{
+for(const p of S.plants)if(isD(p.foto)){p.foto=await cu(p.foto);await API.upd(p.id,{foto:p.foto});say('Memindahkan '+(++i)+'/'+t+'...')}
+for(const a of S.acts){const f=med(a);if(f.some(isD)){const n=[];for(const x of f){const d=isD(x);n.push(d?await cu(x):x);if(d)say('Memindahkan '+(++i)+'/'+t+'...')}a.fotos=n;a.foto='';await API.updAct(a.id,{fotos:n,foto:''})}}
+let ch=0;for(const k of['logo','photo'])if(isD(S.site[k])){S.site[k]=await cu(S.site[k]);ch=1;say('Memindahkan '+(++i)+'/'+t+'...')}
+if(ch)await API.saveSite(S.site);
+say('Selesai ✅ '+i+' foto dipindahkan.');toast('Selesai ✅')}catch(e){say('Terhenti: '+(e.message||'gagal')+'. Tekan tombol lagi untuk melanjutkan.');$('#mgb').disabled=false}}
+let boot=true;
+const hs=t=>{let x=0;for(let i=0;i<t.length;i++)x=(x*31+t.charCodeAt(i))|0;return x};
+const sig=a=>a.map(x=>x.id+hs(JSON.stringify(x))).join();
+const idle=()=>{const f=document.activeElement;return!f||!/INPUT|TEXTAREA/.test(f.tagName)};
+async function load(){
+const f0=boot;boot=false;
+if(f0&&fs){try{const[a,b,c]=await Promise.all([API.site('cache'),API.plants('cache'),API.acts('cache')]);if(b.length||c.length){S.site=a;S.plants=b;S.acts=c;S.actsReady=true;S.ready=true;route()}}catch(e){}}
+const was=S.ready,sp=sig(S.plants),ss=JSON.stringify(S.site);
+try{const[a,b]=await Promise.all([API.site(),API.plants()]);S.site=a;S.plants=b;S.ready=true;
+if(!f0||!was||(sig(b)!==sp||JSON.stringify(a)!==ss)&&idle())route()}
+catch(e){console.error(e);S.ready=true;toast('Gagal terhubung ke database');route()}
+try{const c=await API.acts(),sa=sig(S.acts);S.acts=c;S.actsReady=true;if(!f0||sig(c)!==sa||!was)if(f0?idle():true)route()}catch(e){console.error(e);S.actsReady=true}
+}
 let AF=[];
 const med=a=>a.fotos||(a.foto?[a.foto]:[]);
-const thumbs=()=>AF.map((f,i)=>`<span class="th"><img src="${f}" alt=""><b onclick="AF.splice(${i},1);$('#th').innerHTML=thumbs()">✖</b></span>`).join('');
-async function addPh(el){for(const f of [...el.files]){if(AF.length>=6){toast('Maksimal 6 foto');break}AF.push(await comp(f,800))}el.value='';$('#th').innerHTML=thumbs()}
-function actForm(a){AF=[...(a?med(a):[])];return back(a?'✏️ Edit Aktivitas':'➕ Tambah Aktivitas','#/guru/aktivitas')+`<div class="panel"><label class="l">Judul kegiatan</label><input id="aj" value="${esc(a?.judul)}"><label class="l">Tanggal</label><input id="at" type="date" value="${esc(a?.tanggal)}"><label class="l">Keterangan</label><textarea id="ad" rows="4">${esc(a?.desk)}</textarea><label class="l">📷 Foto (boleh lebih dari satu, maks. 6)</label><div id="th">${thumbs()}</div><input type="file" accept="image/*" multiple onchange="addPh(this)"><label class="l">🎬 Video (tempel tautan YouTube atau Google Drive, satu tautan per baris)</label><textarea id="av" rows="3" placeholder="https://youtu.be/...">${esc((a?.videos||[]).join('\n'))}</textarea><button class="btn g" onclick="saveAct('${a?a.id:''}')">💾 Simpan</button></div>`}
+const thumbs=()=>AF.map((f,i)=>`<span class="th"><img src="${th(f,150)}" alt=""><b onclick="AF.splice(${i},1);$('#th').innerHTML=thumbs()">✖</b></span>`).join('');
+async function addPh(el){for(const f of [...el.files]){if(AF.length>=(CLD?12:6)){toast('Maksimal '+(CLD?12:6)+' foto');break}AF.push(await up(f,720))}el.value='';$('#th').innerHTML=thumbs()}
+function actForm(a){AF=[...(a?med(a):[])];return back(a?'✏️ Edit Aktivitas':'➕ Tambah Aktivitas','#/guru/aktivitas')+`<div class="panel"><label class="l">Judul kegiatan</label><input id="aj" value="${esc(a?.judul)}"><label class="l">Tanggal</label><input id="at" type="date" value="${esc(a?.tanggal)}"><label class="l">Keterangan</label><textarea id="ad" rows="4">${esc(a?.desk)}</textarea><label class="l">📷 Foto (boleh lebih dari satu, maks. ${CLD?12:6})</label><div id="th">${thumbs()}</div><input type="file" accept="image/*" multiple onchange="addPh(this)"><label class="l">🎬 Video (tempel tautan YouTube atau Google Drive, satu tautan per baris)</label><textarea id="av" rows="3" placeholder="https://youtu.be/...">${esc((a?.videos||[]).join('\n'))}</textarea><button class="btn g" onclick="saveAct('${a?a.id:''}')">💾 Simpan</button></div>`}
 async function saveAct(id){const j=$('#aj').value.trim();if(!j)return toast('Judul wajib diisi');
 const d={judul:j,tanggal:$('#at').value,desk:$('#ad').value.trim(),fotos:AF,foto:'',videos:$('#av').value.split('\n').map(x=>x.trim()).filter(Boolean)};
 if(JSON.stringify(d).length>900000)return toast('Ukuran foto terlalu besar, kurangi jumlah foto');
 id?await API.updAct(id,d):await API.addAct(d);toast('Tersimpan ✅');await load();location.hash='#/guru/aktivitas'}
 async function delAct(id){if(!confirm('Hapus aktivitas ini?'))return;await API.delAct(id);toast('Dihapus');load()}
 
-const head=()=>`<header><div class="brand"><div class="logo">${S.site.logo?`<img src="${S.site.logo}">`:'🌿'}</div><div><h1>Smart Plant QR</h1><small>SMPN 19 Kota Pontianak</small></div></div><button class="btn" onclick="guru()">${S.admin?'🔓':'🔐'} Mode Guru</button></header>`;
-const card=p=>`<a class="card" href="#/tanaman/${p.id}"><img src="${p.foto}" alt=""><div class="ci"><b>${esc(p.nama)}</b><i>${esc(p.ilmiah)}</i><span class="tag">${esc(p.jenis)}</span><div><small>🔢 ${p.jumlah||1} &nbsp; ❤️ ${p.likes||0} &nbsp; 👁️ ${p.views||0}</small></div></div></a>`;
+const head=()=>`<header><div class="brand"><div class="logo">${S.site.logo?`<img src="${th(S.site.logo,150)}">`:'🌿'}</div><div><h1>Smart Plant QR</h1><small>SMPN 19 Kota Pontianak</small></div></div><button class="btn" onclick="guru()">${S.admin?'🔓':'🔐'} Mode Guru</button></header>`;
+const card=p=>`<a class="card" href="#/tanaman/${p.id}"><img src="${th(p.foto,400)}" alt=""><div class="ci"><b>${esc(p.nama)}</b><i>${esc(p.ilmiah)}</i><span class="tag">${esc(p.jenis)}</span><div><small>🔢 ${p.jumlah||1} &nbsp; ❤️ ${p.likes||0} &nbsp; 👁️ ${p.views||0}</small></div></div></a>`;
 
 const fd=t=>t?new Date(t).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}):'';
 const sortA=()=>[...S.acts].sort((a,b)=>(b.tanggal||'').localeCompare(a.tanggal||''));
@@ -128,7 +156,7 @@ if(m=u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]
 if(m=u.match(/drive\.google\.com\/file\/d\/([\w-]+)/))return `<div class="vf"><iframe src="https://drive.google.com/file/d/${m[1]}/preview" allowfullscreen loading="lazy"></iframe></div>`;
 if(/\.(mp4|webm|ogg)(\?|$)/i.test(u))return `<video controls preload="metadata" src="${esc(u)}"></video>`;
 return `<a class="btn w" target="_blank" rel="noopener" href="${esc(u)}">▶️ Tonton video</a><br><br>`};
-const gal=a=>{const f=med(a);if(!f.length)return'';return `<div class="gw"><div class="gal" onscroll="gs(this)">${f.map(x=>`<img src="${x}" alt="">`).join('')}</div>${f.length>1?`<span class="gn">1/${f.length}</span><button class="gb l" onclick="gm(this,-1)">‹</button><button class="gb r" onclick="gm(this,1)">›</button>`:''}</div>`};
+const gal=(a,c)=>{const f=med(a);if(!f.length)return'';if(c)return `<div class="gw"><img class="cv" src="${th(f[0],700)}" alt="" loading="lazy" decoding="async">${f.length>1?`<span class="gn">📷 ${f.length}</span>`:''}</div>`;return `<div class="gw"><div class="gal" onscroll="gs(this)">${f.map(x=>`<img src="${th(x,900)}" alt="" loading="lazy" decoding="async">`).join('')}</div>${f.length>1?`<span class="gn">1/${f.length}</span><button class="gb l" onclick="gm(this,-1)">‹</button><button class="gb r" onclick="gm(this,1)">›</button>`:''}</div>`};
 const gm=(b,d)=>{const g=b.parentNode.querySelector('.gal');g.scrollBy({left:d*g.clientWidth,behavior:'smooth'})};
 const gs=g=>{const n=g.parentNode.querySelector('.gn');if(n)n.textContent=(Math.round(g.scrollLeft/g.clientWidth)+1)+'/'+g.children.length};
 function dlQR(id){const p=S.plants.find(x=>x.id===id),t=document.createElement('div');
@@ -139,11 +167,11 @@ x.fillStyle='#0f766e';x.font='bold 38px Poppins,sans-serif';x.fillText(p.nama,34
 x.fillStyle='#64748b';x.font='italic 26px Poppins,sans-serif';x.fillText(p.ilmiah||'',340,712,600);
 x.font='22px Poppins,sans-serif';x.fillText('Smart Plant QR · SMPN 19 Kota Pontianak',340,775,620);
 c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='QR-'+(p.nama.replace(/[^\w]+/g,'-')||'tanaman')+'.jpg';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)},'image/jpeg',.95);toast('Mengunduh QR ✅')}
-const actCard=(a,c)=>`<div class="panel">${gal(a)}${c?((a.videos||[]).length?`<small>🎬 ${a.videos.length} video</small><br>`:''):(a.videos||[]).map(vid).join('')}<h3>${esc(a.judul)}</h3><small>📅 ${fd(a.tanggal)}</small><p class="${c?'cl':''}">${esc(a.desk)}</p></div>`;
-const actSec=()=>`<h3 style="margin:8px 0;color:#7c3aed">🌟 Aktivitas Adiwiyata</h3>${S.acts.length?sortA().slice(0,3).map(a=>actCard(a,1)).join('')+'<a class="btn g" href="#/aktivitas">Lihat semua aktivitas</a>':'<div class="panel">Belum ada aktivitas. Guru dapat menambahkannya lewat Mode Guru.</div>'}`;
+const actCard=(a,c)=>`<div class="panel">${gal(a,c)}${c?((a.videos||[]).length?`<small>🎬 ${a.videos.length} video</small><br>`:''):(a.videos||[]).map(vid).join('')}<h3>${esc(a.judul)}</h3><small>📅 ${fd(a.tanggal)}</small><p class="${c?'cl':''}">${esc(a.desk)}</p></div>`;
+const actSec=()=>`<h3 style="margin:8px 0;color:#7c3aed">🌟 Aktivitas Adiwiyata</h3>${S.acts.length?sortA().slice(0,3).map(a=>actCard(a,1)).join('')+'<a class="btn g" href="#/aktivitas">Lihat semua aktivitas</a>':(S.actsReady?'<div class="panel">Belum ada aktivitas. Guru dapat menambahkannya lewat Mode Guru.</div>':'<div class="panel">⏳ Memuat aktivitas...</div>')}`;
 const aktivitas=()=>`<h3 style="margin-bottom:8px;color:#7c3aed">🌟 Aktivitas Adiwiyata</h3>${S.acts.length?sortA().map(a=>actCard(a)).join(''):'<div class="panel">Belum ada aktivitas.</div>'}`;
 function home(){const n=S.plants.length,tot=S.plants.reduce((s,p)=>s+(p.jumlah||1),0),j=new Set(S.plants.map(p=>p.jenis)).size,fk=S.plants.filter(p=>p.fakta),f=fk.length?fk[Math.floor(Math.random()*fk.length)]:null;
-return `<div class="hero" style="${S.site.photo?`background-image:url(${S.site.photo})`:''}"><div><h2>🌱 Kenali Tanaman di Sekitarmu</h2></div></div>
+return `<div class="hero" style="${S.site.photo?`background-image:url(${th(S.site.photo,1000)})`:''}"><div><h2>🌱 Kenali Tanaman di Sekitarmu</h2></div></div>
 <div class="stats"><div class="stat s1"><b>🌳 ${n}</b>Tanaman</div><div class="stat s2"><b>🏷️ ${j}</b>Jenis</div><div class="stat s3"><b>🌲 ${tot}</b>Seluruhnya (jumlah tanaman di sekolah)</div></div>
 <div class="panel fact"><h3>✨ Fakta Menarik</h3>${f?`<p><b>${esc(f.nama)}</b>: ${esc(f.fakta)}</p>`:'<p>Belum ada fakta. Tambahkan tanaman pertama untuk memulai.</p>'}<br><button class="btn w" onclick="route()">🔄 Fakta lainnya</button></div>${actSec()}`}
 
@@ -153,8 +181,8 @@ ${l.length?`<div class="grid">${l.map(card).join('')}</div>`:'<div class="panel"
 
 function detail(id){const p=S.plants.find(x=>x.id===id);if(!p)return'<div class="panel">Tanaman tidak ditemukan. <a href="#/koleksi">Kembali ke koleksi</a></div>';
 if(!sessionStorage['v'+id]){sessionStorage['v'+id]=1;API.inc(id,'views');p.views=(p.views||0)+1}
-return `<a class="btn w" href="#/koleksi">⬅️ Kembali</a><br><br><img class="pimg" src="${p.foto}" alt="${esc(p.nama)}">
-<div class="ic"><button class="pill" id="lk" onclick="like('${id}')">${sessionStorage['l'+id]?'❤️':'🤍'} ${p.likes||0}</button><span class="pill">👁️ ${p.views}</span><button class="btn g" style="margin-left:auto" onclick="qr('${id}')">⬇️ Unduh QR</button></div>
+return `<a class="btn w" href="#/koleksi">⬅️ Kembali</a><br><br><img class="pimg" src="${th(p.foto,900)}" alt="${esc(p.nama)}">
+<div class="ic"><button class="pill" id="lk" onclick="like('${id}')">${sessionStorage['l'+id]?'❤️':'🤍'} ${p.likes||0}</button><span class="pill">👁️ ${p.views}</span><button class="btn g" style="margin-left:auto" onclick="qr('${id}')">⬇️ Unduh QR</button>${S.admin?`<a class="btn" href="#/edit/${id}">✏️ Edit</a>`:''}</div>
 <div class="panel"><h2>${esc(p.nama)}</h2><i style="color:#64748b">${esc(p.ilmiah)}</i><br><span class="tag">🏷️ ${esc(p.jenis)}</span> <span class="tag" style="background:#fef3c7;color:#b45309">🔢 ${p.jumlah||1} tanaman di sekolah</span></div>
 ${SEC.map(([e,t,k])=>p[k]?`<div class="panel"><h3>${e} ${t}${k=='fakta'?' – '+esc(p.nama):''}</h3><p>${esc(p[k])}</p></div>`:'').join('')}`}
 
@@ -178,19 +206,19 @@ async function save(id){const g=i=>$('#'+i).value.trim(),f=$('#foto').files[0];
 if(!g('nama')||!J)return toast('Nama dan jenis wajib diisi');
 const old=id&&S.plants.find(p=>p.id===id);if(!f&&!old)return toast('Foto wajib diunggah');
 const d={nama:g('nama'),jumlah:Math.max(1,parseInt(g('jumlah'))||1),ilmiah:g('ilmiah'),jenis:J,manfaat:g('manfaat'),ciri:g('ciri'),rawat:g('rawat'),habitat:g('habitat'),fakta:g('fakta'),peran:g('peran')};
-if(f)d.foto=await comp(f);
+if(f)d.foto=await up(f,700);
 id?await API.upd(id,d):await API.add({...d,likes:0,views:0});
-toast('Tersimpan ✅');await load();location.hash=id?'#/guru/info':'#/koleksi'}
+toast('Tersimpan ✅');await load();location.hash=id?'#/tanaman/'+id:'#/koleksi'}
 
 // ===== Mode Guru =====
 function guru(){if(S.admin)return location.hash='#/guru';
 modal(`<h3 style="color:#7c3aed">🔐 Mode Guru</h3><br><input id="lu" placeholder="Username"><input id="lp" type="password" placeholder="PIN"><button class="btn g" onclick="login()">Masuk</button> <button class="btn w" onclick="closeM()">Batal</button>`)}
 function login(){const u=$('#lu').value.trim(),p=$('#lp').value.trim(),s=S.site;let a=null;
 if(u===s.main.u&&p===s.main.p)a={u,main:true};else if(s.admins.some(x=>x.u===u&&x.p===p))a={u,main:false};
-if(!a)return toast('Username atau PIN salah ❌');S.admin=a;sessionStorage.admin=JSON.stringify(a);closeM();location.hash='#/guru';route()}
+if(!a)return toast('Username atau PIN salah ❌');S.admin=a;sessionStorage.admin=JSON.stringify(a);closeM();if(!/^#\/tanaman/.test(location.hash))location.hash='#/guru';route()}
 function logout(){S.admin=null;sessionStorage.removeItem('admin');location.hash='#/';route()}
 const sv=async m=>{await API.saveSite(S.site);toast(m||'Tersimpan ✅');route()};
-async function setImg(k,el){const f=el.files[0];if(!f)return;S.site[k]=await comp(f,k=='logo'?300:900);sv('Gambar diperbarui ✅')}
+async function setImg(k,el){const f=el.files[0];if(!f)return;S.site[k]=await up(f,k=='logo'?300:900);sv('Gambar diperbarui ✅')}
 const addType=()=>{const t=$('#nt').value.trim();if(!t)return;S.site.types.push(t);sv()};
 const delType=i=>{if(confirm('Hapus jenis ini?')){S.site.types.splice(i,1);sv()}};
 async function delPlant(id){if(!confirm('Hapus tanaman ini?'))return;await API.del(id);toast('Dihapus');load()}
@@ -209,13 +237,21 @@ if(b=='jenis')return back('🏷️ Jenis Tanaman')+`<div class="panel">${s.types
 if(b=='info')return back('🌱 Info Tanaman')+`<a class="btn g" href="#/tambah">➕ Tambah tanaman</a><br><br><input placeholder="🔍 Cari tanaman..." oninput="fl(this)"><div class="panel"><small>${S.plants.length} tanaman</small>${S.plants.map(p=>`<div class="row" data-n="${esc((p.nama+' '+p.jenis).toLowerCase())}"><span>${esc(p.nama)}<br><small>${esc(p.jenis)} · ${p.jumlah||1} pohon</small></span><span><a class="btn w" href="#/edit/${p.id}">✏️</a> <button class="btn r" onclick="delPlant('${p.id}')">🗑️</button></span></div>`).join('')||'<p>Belum ada tanaman.</p>'}</div>`;
 if(b=='aktivitas'){if(c=='baru')return actForm();if(c){const x=S.acts.find(y=>y.id===c);if(x)return actForm(x)}
 return back('🌟 Aktivitas')+`<a class="btn g" href="#/guru/aktivitas/baru">➕ Tambah aktivitas</a><br><br><input placeholder="🔍 Cari aktivitas..." oninput="fl(this)"><div class="panel"><small>${S.acts.length} aktivitas</small>${sortA().map(x=>`<div class="row" data-n="${esc((x.judul||'').toLowerCase())}"><span>${esc(x.judul)}<br><small>📅 ${fd(x.tanggal)} · 📷 ${med(x).length} · 🎬 ${(x.videos||[]).length}</small></span><span><a class="btn w" href="#/guru/aktivitas/${x.id}">✏️</a> <button class="btn r" onclick="delAct('${x.id}')">🗑️</button></span></div>`).join('')||'<p>Belum ada aktivitas.</p>'}</div>`}
+if(b=='migrasi'&&CLD)return back('☁️ Pindahkan Foto')+`<div class="panel"><p>Memindahkan foto lama (yang tersimpan di database) ke Cloudinary agar aplikasi lebih ringan. Foto yang belum dipindahkan: <b>${pend()}</b>.</p><br><button class="btn g" id="mgb" onclick="migrate()">☁️ Mulai pindahkan</button><p id="mg" style="margin-top:12px;font-weight:600"></p></div>`;
 if(b=='tentang')return back('📖 Tentang Program')+`<div class="panel"><label class="l">Pengertian</label><textarea id="a1" rows="4">${esc(a.def)}</textarea><label class="l">Tujuan</label><textarea id="a2" rows="4">${esc(a.goal)}</textarea><label class="l">Hubungan dengan Adiwiyata</label><textarea id="a3" rows="4">${esc(a.adi)}</textarea><button class="btn g" onclick="saveAbout()">💾 Simpan</button></div>`;
 if(b=='admin'&&m)return back('👥 Admin &amp; Akun')+`<div class="panel"><label class="l">Username admin utama</label><input id="mu" value="${esc(s.main.u)}"><label class="l">PIN admin utama</label><input id="mp" value="${esc(s.main.p)}"><button class="btn" onclick="setMain()">Ubah</button><br><br><b style="font-size:13px">Admin biasa</b>${s.admins.map((x,i)=>`<div class="row">${esc(x.u)}<button class="btn r" onclick="delAdm(${i})">🗑️</button></div>`).join('')||'<p>Belum ada.</p>'}<br><input id="au" placeholder="Username admin baru"><input id="ap" placeholder="PIN admin baru"><button class="btn g" onclick="addAdm()">➕ Tambah admin</button></div>`;
-return `<div class="gh"><h2>👩‍🏫 Mode Guru</h2><p>Halo, <b>${esc(S.admin.u)}</b> · ${m?'Admin utama':'Admin'} · kelola konten Smart Plant QR di sini.</p></div><div class="gg">${gc('#/guru/gambar','#0ea5e9','🖼️','Gambar Beranda &amp; Logo')}${gc('#/guru/jenis','#8b5cf6','🏷️','Jenis Tanaman')}${gc('#/guru/info','#10b981','🌱','Info Tanaman')}${gc('#/guru/aktivitas','#14b8a6','🌟','Aktivitas')}${gc('#/guru/tentang','#f59e0b','📖','Tentang Program')}${m?gc('#/guru/admin','#ec4899','👥','Admin &amp; Akun'):''}<a class="gc" href="#" onclick="logout();return false"><i style="background:#ef4444">🚪</i>Keluar</a></div>`}
+return `<div class="gh"><h2>👩‍🏫 Mode Guru</h2><p>Halo, <b>${esc(S.admin.u)}</b> · ${m?'Admin utama':'Admin'} · kelola konten Smart Plant QR di sini.</p></div><div class="gg">${gc('#/guru/gambar','#0ea5e9','🖼️','Gambar Beranda &amp; Logo')}${gc('#/guru/jenis','#8b5cf6','🏷️','Jenis Tanaman')}${gc('#/guru/info','#10b981','🌱','Info Tanaman')}${gc('#/guru/aktivitas','#14b8a6','🌟','Aktivitas')}${gc('#/guru/tentang','#f59e0b','📖','Tentang Program')}${m?gc('#/guru/admin','#ec4899','👥','Admin &amp; Akun'):''}${CLD?gc('#/guru/migrasi','#6366f1','☁️','Pindahkan Foto'):''}<a class="gc" href="#" onclick="logout();return false"><i style="background:#ef4444">🚪</i>Keluar</a></div>`}
 
+function detailEdit(p){window.J=p.jenis;
+return `<a class="btn w" href="#/tanaman/${p.id}">⬅️ Batal</a><h2 style="margin:12px 0;color:#0f766e">✏️ Edit Informasi Tanaman</h2>
+<img class="pimg" src="${th(p.foto,700)}" alt=""><div class="panel" style="margin-top:12px"><label class="l">📷 Ganti foto (kosongkan jika tidak diganti)</label><input type="file" id="foto" accept="image/*"></div>
+<div class="panel"><label class="l">🌱 Nama tanaman</label><input id="nama" value="${esc(p.nama)}"><label class="l">🔬 Nama ilmiah</label><input id="ilmiah" value="${esc(p.ilmiah)}"><label class="l">🔢 Jumlah di sekolah</label><input id="jumlah" type="number" min="1" value="${p.jumlah||1}"><label class="l">🏷️ Jenis tanaman</label><div class="chips wrap">${S.site.types.map(t=>`<button type="button" class="chip ${t===J?'on':''}" data-t="${esc(t)}" onclick="J=this.dataset.t;document.querySelectorAll('.chips.wrap .chip').forEach(c=>c.classList.toggle('on',c==this))">${esc(t)}</button>`).join('')}</div></div>
+${SEC.map(([e,t,k])=>`<div class="panel"><h3>${e} ${t}</h3><textarea id="${k}" rows="4">${esc(p[k])}</textarea></div>`).join('')}
+<button class="btn g" onclick="save('${p.id}')">💾 Simpan perubahan</button> <a class="btn w" href="#/tanaman/${p.id}">Batal</a>`}
 function route(){const[,a,b,c]=(location.hash||'#/').split('/');let v;
+if(!S.ready){$('#v').innerHTML=head()+'<div class="panel" style="text-align:center;font-weight:600;color:#0f766e;padding:40px 16px">🌱 Memuat data tanaman...</div>';return}
 if(a=='koleksi')v=koleksi();else if(a=='tambah')v=form();else if(a=='tentang')v=tentang();else if(a=='aktivitas')v=aktivitas();else if(a=='tanaman')v=detail(b);
-else if(a=='edit')v=S.admin?form(S.plants.find(p=>p.id===b)):panel();else if(a=='guru')v=panel(b,c);else v=home();
+else if(a=='edit'){const p=S.plants.find(x=>x.id===b);v=S.admin&&p?detailEdit(p):panel()}else if(a=='guru')v=panel(b,c);else v=home();
 $('#v').innerHTML=head()+v;
 document.querySelectorAll('nav a').forEach(x=>x.classList.toggle('on',x.dataset.h===(a=='tanaman'?'koleksi':a||'')));}
 addEventListener('hashchange',()=>{route();scrollTo(0,0)});
@@ -224,6 +260,6 @@ document.addEventListener('contextmenu',e=>{if(!/INPUT|TEXTAREA/.test(e.target.t
 document.addEventListener('selectstart',e=>{if(!/INPUT|TEXTAREA/.test(e.target.tagName))e.preventDefault()});
 document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault()},{passive:false});
 ['gesturestart','gesturechange','dragstart'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
-load();
+route();load();
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js'));
 </script></body></html>
