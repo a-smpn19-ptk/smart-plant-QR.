@@ -10,3 +10,4 @@ window.FB_CONFIG = {
   appId: "1:1017030726273:web:347d26347e9bbfd2b53380",
   measurementId: "G-C1QDEEWL05"
 };
+window.CLOUDINARY_CONFIG = { cloud: "jffn42zp", preset: "SmartPlant" };
