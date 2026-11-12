@@ -57,6 +57,12 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
 .aimg{width:100%;max-height:220px;object-fit:cover;border-radius:16px;margin-bottom:8px}
 .cl{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 @media print{body>:not(#modal){display:none!important}#modal{position:static;background:none;display:block!important}.noprint{display:none}}
+.gh{background:linear-gradient(135deg,#059669,#10b981);color:#fff;border-radius:24px;padding:18px;margin-bottom:14px;box-shadow:0 8px 20px #05966933}.gh h2{font-size:22px;margin-bottom:4px}.gh p{font-size:13px}
+.gg{display:grid;grid-template-columns:1fr 1fr;gap:12px}.gc{background:#fff;border-radius:24px;padding:18px 10px;text-align:center;text-decoration:none;color:var(--tx);font-weight:600;font-size:14px;box-shadow:0 4px 16px #0001;display:block}.gc:active{transform:scale(.97)}
+.gc i{display:grid;place-items:center;width:58px;height:58px;border-radius:18px;margin:0 auto 10px;font-size:28px;font-style:normal}
+.gal{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;margin-bottom:8px}.gal img{flex:0 0 85%;scroll-snap-align:start;height:210px;object-fit:cover;border-radius:16px}
+.vf{position:relative;padding-top:56.25%;border-radius:16px;overflow:hidden;margin-bottom:8px}.vf iframe{position:absolute;inset:0;width:100%;height:100%;border:0}video{width:100%;border-radius:16px;margin-bottom:8px}
+.th{position:relative;display:inline-block;margin:0 8px 8px 0}.th img{width:70px;height:70px;object-fit:cover;border-radius:12px}.th b{position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border-radius:99px;width:20px;height:20px;font-size:11px;display:grid;place-items:center;cursor:pointer}
 </style></head><body>
 <div class="app" id="v"></div>
 <nav><a href="#/" data-h=""><span>🏠</span>Beranda</a><a href="#/koleksi" data-h="koleksi"><span>🌿</span>Koleksi</a><a href="#/tambah" data-h="tambah"><span>➕</span>Tambah</a><a href="#/aktivitas" data-h="aktivitas"><span>🌟</span>Aktivitas</a><a href="#/tentang" data-h="tentang"><span>📖</span>Tentang</a></nav>
@@ -86,6 +92,7 @@ const API={
  async acts(){if(fs)return(await fs.collection('activities').get()).docs.map(d=>({id:d.id,...d.data()}));return L.get('acts')||[]},
  async addAct(a){fs?await fs.collection('activities').add(a):L.set('acts',[...(L.get('acts')||[]),{...a,id:'a'+Date.now()}])},
  async delAct(id){fs?await fs.collection('activities').doc(id).delete():L.set('acts',(L.get('acts')||[]).filter(x=>x.id!==id))},
+ async updAct(id,a){fs?await fs.collection('activities').doc(id).update(a):L.set('acts',(L.get('acts')||[]).map(x=>x.id===id?{...x,...a}:x))},
  async inc(id,f){fs?await fs.collection('plants').doc(id).update({[f]:firebase.firestore.FieldValue.increment(1)}):loc(a=>{const p=a.find(x=>x.id===id);p[f]=(p[f]||0)+1})}
 };
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -96,9 +103,15 @@ const modal=h=>{$('#modal').innerHTML='<div class="mbox">'+h+'</div>';$('#modal'
 const closeM=()=>$('#modal').style.display='none';
 const comp=(f,m=700)=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>{const i=new Image();i.onload=()=>{const k=Math.min(1,m/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(i,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',.72))};i.src=fr.result};fr.readAsDataURL(f)});
 async function load(){try{S.site=await API.site();S.plants=await API.plants();S.acts=await API.acts()}catch(e){console.error(e);toast('Gagal terhubung ke database')}route()}
-const actPanel=()=>`<div class="panel"><h3>🌟 Aktivitas Adiwiyata</h3><label class="l">Judul kegiatan</label><input id="aj"><label class="l">Tanggal</label><input id="at" type="date"><label class="l">Keterangan</label><textarea id="ad" rows="3"></textarea><label class="l">Foto kegiatan (opsional)</label><input type="file" id="af" accept="image/*"><button class="btn g" onclick="addAct()">➕ Tambah aktivitas</button>${S.acts.map(a=>`<div class="row">${esc(a.judul)}<button class="btn r" onclick="delAct('${a.id}')">🗑️</button></div>`).join('')}</div>`;
-async function addAct(){const j=$('#aj').value.trim();if(!j)return toast('Judul wajib diisi');const f=$('#af').files[0];
-await API.addAct({judul:j,tanggal:$('#at').value,desk:$('#ad').value.trim(),foto:f?await comp(f,900):''});toast('Aktivitas ditambahkan ✅');load()}
+let AF=[];
+const med=a=>a.fotos||(a.foto?[a.foto]:[]);
+const thumbs=()=>AF.map((f,i)=>`<span class="th"><img src="${f}" alt=""><b onclick="AF.splice(${i},1);$('#th').innerHTML=thumbs()">✖</b></span>`).join('');
+async function addPh(el){for(const f of [...el.files]){if(AF.length>=6){toast('Maksimal 6 foto');break}AF.push(await comp(f,800))}el.value='';$('#th').innerHTML=thumbs()}
+function actForm(a){AF=[...(a?med(a):[])];return back(a?'✏️ Edit Aktivitas':'➕ Tambah Aktivitas','#/guru/aktivitas')+`<div class="panel"><label class="l">Judul kegiatan</label><input id="aj" value="${esc(a?.judul)}"><label class="l">Tanggal</label><input id="at" type="date" value="${esc(a?.tanggal)}"><label class="l">Keterangan</label><textarea id="ad" rows="4">${esc(a?.desk)}</textarea><label class="l">📷 Foto (boleh lebih dari satu, maks. 6)</label><div id="th">${thumbs()}</div><input type="file" accept="image/*" multiple onchange="addPh(this)"><label class="l">🎬 Video (tempel tautan YouTube atau Google Drive, satu tautan per baris)</label><textarea id="av" rows="3" placeholder="https://youtu.be/...">${esc((a?.videos||[]).join('\n'))}</textarea><button class="btn g" onclick="saveAct('${a?a.id:''}')">💾 Simpan</button></div>`}
+async function saveAct(id){const j=$('#aj').value.trim();if(!j)return toast('Judul wajib diisi');
+const d={judul:j,tanggal:$('#at').value,desk:$('#ad').value.trim(),fotos:AF,foto:'',videos:$('#av').value.split('\n').map(x=>x.trim()).filter(Boolean)};
+if(JSON.stringify(d).length>900000)return toast('Ukuran foto terlalu besar, kurangi jumlah foto');
+id?await API.updAct(id,d):await API.addAct(d);toast('Tersimpan ✅');await load();location.hash='#/guru/aktivitas'}
 async function delAct(id){if(!confirm('Hapus aktivitas ini?'))return;await API.delAct(id);toast('Dihapus');load()}
 
 const head=()=>`<header><div class="brand"><div class="logo">${S.site.logo?`<img src="${S.site.logo}">`:'🌿'}</div><div><h1>Smart Plant QR</h1><small>SMPN 19 Kota Pontianak</small></div></div><button class="btn" onclick="guru()">${S.admin?'🔓':'🔐'} Mode Guru</button></header>`;
@@ -106,7 +119,13 @@ const card=p=>`<a class="card" href="#/tanaman/${p.id}"><img src="${p.foto}" alt
 
 const fd=t=>t?new Date(t).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}):'';
 const sortA=()=>[...S.acts].sort((a,b)=>(b.tanggal||'').localeCompare(a.tanggal||''));
-const actCard=(a,c)=>`<div class="panel">${a.foto?`<img class="aimg" src="${a.foto}" alt="">`:''}<h3>${esc(a.judul)}</h3><small>📅 ${fd(a.tanggal)}</small><p class="${c?'cl':''}">${esc(a.desk)}</p></div>`;
+const vid=u=>{let m;if(!/^https?:\/\//.test(u))return '';
+if(m=u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{11})/))return `<div class="vf"><iframe src="https://www.youtube.com/embed/${m[1]}" allowfullscreen loading="lazy"></iframe></div>`;
+if(m=u.match(/drive\.google\.com\/file\/d\/([\w-]+)/))return `<div class="vf"><iframe src="https://drive.google.com/file/d/${m[1]}/preview" allowfullscreen loading="lazy"></iframe></div>`;
+if(/\.(mp4|webm|ogg)(\?|$)/i.test(u))return `<video controls preload="metadata" src="${esc(u)}"></video>`;
+return `<a class="btn w" target="_blank" rel="noopener" href="${esc(u)}">▶️ Tonton video</a><br><br>`};
+const gal=a=>{const f=med(a);return f.length?`<div class="gal">${f.map(x=>`<img src="${x}" alt="" style="flex-basis:${f.length>1?'85%':'100%'}">`).join('')}</div>`:''};
+const actCard=(a,c)=>`<div class="panel">${gal(a)}${c?((a.videos||[]).length?`<small>🎬 ${a.videos.length} video</small><br>`:''):(a.videos||[]).map(vid).join('')}<h3>${esc(a.judul)}</h3><small>📅 ${fd(a.tanggal)}</small><p class="${c?'cl':''}">${esc(a.desk)}</p></div>`;
 const actSec=()=>`<h3 style="margin:8px 0;color:#7c3aed">🌟 Aktivitas Adiwiyata</h3>${S.acts.length?sortA().slice(0,3).map(a=>actCard(a,1)).join('')+'<a class="btn g" href="#/aktivitas">Lihat semua aktivitas</a>':'<div class="panel">Belum ada aktivitas. Guru dapat menambahkannya lewat Mode Guru.</div>'}`;
 const aktivitas=()=>`<h3 style="margin-bottom:8px;color:#7c3aed">🌟 Aktivitas Adiwiyata</h3>${S.acts.length?sortA().map(a=>actCard(a)).join(''):'<div class="panel">Belum ada aktivitas.</div>'}`;
 function home(){const n=S.plants.length,tot=S.plants.reduce((s,p)=>s+(p.jumlah||1),0),j=new Set(S.plants.map(p=>p.jenis)).size,fk=S.plants.filter(p=>p.fakta),f=fk.length?fk[Math.floor(Math.random()*fk.length)]:null;
@@ -147,7 +166,7 @@ const old=id&&S.plants.find(p=>p.id===id);if(!f&&!old)return toast('Foto wajib d
 const d={nama:g('nama'),jumlah:Math.max(1,parseInt(g('jumlah'))||1),ilmiah:g('ilmiah'),jenis:J,manfaat:g('manfaat'),ciri:g('ciri'),rawat:g('rawat'),habitat:g('habitat'),fakta:g('fakta'),peran:g('peran')};
 if(f)d.foto=await comp(f);
 id?await API.upd(id,d):await API.add({...d,likes:0,views:0});
-toast('Tersimpan ✅');await load();location.hash=id?'#/guru':'#/koleksi'}
+toast('Tersimpan ✅');await load();location.hash=id?'#/guru/info':'#/koleksi'}
 
 // ===== Mode Guru =====
 function guru(){if(S.admin)return location.hash='#/guru';
@@ -165,18 +184,24 @@ const saveAbout=()=>{S.site.about={def:$('#a1').value,goal:$('#a2').value,adi:$(
 function setMain(){const u=$('#mu').value.trim(),p=$('#mp').value.trim();if(!u||!p)return toast('Isi username dan PIN');S.site.main={u,p};S.admin.u=u;sessionStorage.admin=JSON.stringify(S.admin);sv('Admin utama diperbarui ✅')}
 function addAdm(){const u=$('#au').value.trim(),p=$('#ap').value.trim();if(!u||!p)return toast('Isi username dan PIN');if(u===S.site.main.u||S.site.admins.some(x=>x.u===u))return toast('Username sudah dipakai');S.site.admins.push({u,p});sv('Admin ditambahkan ✅')}
 const delAdm=i=>{if(confirm('Hapus admin ini?')){S.site.admins.splice(i,1);sv()}};
-function panel(){if(!S.admin)return'<div class="panel">Silakan masuk lewat tombol Mode Guru.</div>';const s=S.site,a=s.about;
-return `<div class="panel"><h2>👩‍🏫 Mode Guru</h2><p>Halo, <b>${esc(S.admin.u)}</b> ${S.admin.main?'(Admin Utama)':'(Admin)'}</p></div>
-<div class="panel"><h3>🖼️ Gambar Beranda dan Logo</h3><label class="l">Foto sekolah</label><input type="file" accept="image/*" onchange="setImg('photo',this)"><label class="l">Logo Smart Plant QR</label><input type="file" accept="image/*" onchange="setImg('logo',this)"></div>
-<div class="panel"><h3>🏷️ Jenis Tanaman</h3>${s.types.map((t,i)=>`<div class="row">${esc(t)}<button class="btn r" onclick="delType(${i})">🗑️</button></div>`).join('')}<br><input id="nt" placeholder="Jenis baru, mis. Tanaman Air"><button class="btn g" onclick="addType()">➕ Tambah jenis</button></div>
-<div class="panel"><h3>🌱 Edit Informasi Tanaman</h3>${S.plants.map(p=>`<div class="row">${esc(p.nama)}<span><a class="btn w" href="#/edit/${p.id}">✏️</a> <button class="btn r" onclick="delPlant('${p.id}')">🗑️</button></span></div>`).join('')||'Belum ada tanaman.'}</div>
-<div class="panel"><h3>📖 Edit Tentang Program</h3><label class="l">Pengertian</label><textarea id="a1" rows="4">${esc(a.def)}</textarea><label class="l">Tujuan</label><textarea id="a2" rows="4">${esc(a.goal)}</textarea><label class="l">Hubungan dengan Adiwiyata</label><textarea id="a3" rows="4">${esc(a.adi)}</textarea><button class="btn g" onclick="saveAbout()">💾 Simpan</button></div>
-${actPanel()}${S.admin.main?`<div class="panel"><h3>🛡️ Kelola Admin</h3><label class="l">Username admin utama</label><input id="mu" value="${esc(s.main.u)}"><label class="l">PIN admin utama</label><input id="mp" value="${esc(s.main.p)}"><button class="btn" onclick="setMain()">Ubah</button><br><br><b style="font-size:13px">Admin biasa</b>${s.admins.map((x,i)=>`<div class="row">${esc(x.u)}<button class="btn r" onclick="delAdm(${i})">🗑️</button></div>`).join('')||'<p>Belum ada.</p>'}<br><input id="au" placeholder="Username admin baru"><input id="ap" placeholder="PIN admin baru"><button class="btn g" onclick="addAdm()">➕ Tambah admin</button></div>`:''}
-<button class="btn r" onclick="logout()">🚪 Keluar</button>`}
+const back=(t,h='#/guru')=>`<a class="btn w" href="${h}">⬅️ Kembali</a><h2 style="margin:12px 0;color:#0f766e">${t}</h2>`;
+const fl=el=>{const q=el.value.toLowerCase();document.querySelectorAll('[data-n]').forEach(r=>r.style.display=r.dataset.n.includes(q)?'':'none')};
+const gc=(h,c,e,t)=>`<a class="gc" href="${h}"><i style="background:${c}">${e}</i>${t}</a>`;
+function panel(b,c){
+if(!S.admin)return'<div class="panel">Silakan masuk lewat tombol Mode Guru.</div>';
+const s=S.site,m=S.admin.main,a=s.about;
+if(b=='gambar')return back('🖼️ Gambar Beranda &amp; Logo')+`<div class="panel"><label class="l">Foto sekolah</label><input type="file" accept="image/*" onchange="setImg('photo',this)"><label class="l">Logo Smart Plant QR</label><input type="file" accept="image/*" onchange="setImg('logo',this)"></div>`;
+if(b=='jenis')return back('🏷️ Jenis Tanaman')+`<div class="panel">${s.types.map((t,i)=>`<div class="row">${esc(t)}<button class="btn r" onclick="delType(${i})">🗑️</button></div>`).join('')}<br><input id="nt" placeholder="Jenis baru, mis. Tanaman Air"><button class="btn g" onclick="addType()">➕ Tambah jenis</button></div>`;
+if(b=='info')return back('🌱 Info Tanaman')+`<a class="btn g" href="#/tambah">➕ Tambah tanaman</a><br><br><input placeholder="🔍 Cari tanaman..." oninput="fl(this)"><div class="panel"><small>${S.plants.length} tanaman</small>${S.plants.map(p=>`<div class="row" data-n="${esc((p.nama+' '+p.jenis).toLowerCase())}"><span>${esc(p.nama)}<br><small>${esc(p.jenis)} · ${p.jumlah||1} pohon</small></span><span><a class="btn w" href="#/edit/${p.id}">✏️</a> <button class="btn r" onclick="delPlant('${p.id}')">🗑️</button></span></div>`).join('')||'<p>Belum ada tanaman.</p>'}</div>`;
+if(b=='aktivitas'){if(c=='baru')return actForm();if(c){const x=S.acts.find(y=>y.id===c);if(x)return actForm(x)}
+return back('🌟 Aktivitas')+`<a class="btn g" href="#/guru/aktivitas/baru">➕ Tambah aktivitas</a><br><br><input placeholder="🔍 Cari aktivitas..." oninput="fl(this)"><div class="panel"><small>${S.acts.length} aktivitas</small>${sortA().map(x=>`<div class="row" data-n="${esc((x.judul||'').toLowerCase())}"><span>${esc(x.judul)}<br><small>📅 ${fd(x.tanggal)} · 📷 ${med(x).length} · 🎬 ${(x.videos||[]).length}</small></span><span><a class="btn w" href="#/guru/aktivitas/${x.id}">✏️</a> <button class="btn r" onclick="delAct('${x.id}')">🗑️</button></span></div>`).join('')||'<p>Belum ada aktivitas.</p>'}</div>`}
+if(b=='tentang')return back('📖 Tentang Program')+`<div class="panel"><label class="l">Pengertian</label><textarea id="a1" rows="4">${esc(a.def)}</textarea><label class="l">Tujuan</label><textarea id="a2" rows="4">${esc(a.goal)}</textarea><label class="l">Hubungan dengan Adiwiyata</label><textarea id="a3" rows="4">${esc(a.adi)}</textarea><button class="btn g" onclick="saveAbout()">💾 Simpan</button></div>`;
+if(b=='admin'&&m)return back('👥 Admin &amp; Akun')+`<div class="panel"><label class="l">Username admin utama</label><input id="mu" value="${esc(s.main.u)}"><label class="l">PIN admin utama</label><input id="mp" value="${esc(s.main.p)}"><button class="btn" onclick="setMain()">Ubah</button><br><br><b style="font-size:13px">Admin biasa</b>${s.admins.map((x,i)=>`<div class="row">${esc(x.u)}<button class="btn r" onclick="delAdm(${i})">🗑️</button></div>`).join('')||'<p>Belum ada.</p>'}<br><input id="au" placeholder="Username admin baru"><input id="ap" placeholder="PIN admin baru"><button class="btn g" onclick="addAdm()">➕ Tambah admin</button></div>`;
+return `<div class="gh"><h2>👩‍🏫 Mode Guru</h2><p>Halo, <b>${esc(S.admin.u)}</b> · ${m?'Admin utama':'Admin'} · kelola konten Smart Plant QR di sini.</p></div><div class="gg">${gc('#/guru/gambar','#0ea5e9','🖼️','Gambar Beranda &amp; Logo')}${gc('#/guru/jenis','#8b5cf6','🏷️','Jenis Tanaman')}${gc('#/guru/info','#10b981','🌱','Info Tanaman')}${gc('#/guru/aktivitas','#14b8a6','🌟','Aktivitas')}${gc('#/guru/tentang','#f59e0b','📖','Tentang Program')}${m?gc('#/guru/admin','#ec4899','👥','Admin &amp; Akun'):''}<a class="gc" href="#" onclick="logout();return false"><i style="background:#ef4444">🚪</i>Keluar</a></div>`}
 
-function route(){const[,a,b]=(location.hash||'#/').split('/');let v;
+function route(){const[,a,b,c]=(location.hash||'#/').split('/');let v;
 if(a=='koleksi')v=koleksi();else if(a=='tambah')v=form();else if(a=='tentang')v=tentang();else if(a=='aktivitas')v=aktivitas();else if(a=='tanaman')v=detail(b);
-else if(a=='edit')v=S.admin?form(S.plants.find(p=>p.id===b)):panel();else if(a=='guru')v=panel();else v=home();
+else if(a=='edit')v=S.admin?form(S.plants.find(p=>p.id===b)):panel();else if(a=='guru')v=panel(b,c);else v=home();
 $('#v').innerHTML=head()+v;
 document.querySelectorAll('nav a').forEach(x=>x.classList.toggle('on',x.dataset.h===(a=='tanaman'?'koleksi':a||'')));}
 addEventListener('hashchange',()=>{route();scrollTo(0,0)});
