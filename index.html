@@ -68,6 +68,8 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
 .gn{position:absolute;top:10px;right:10px;background:#0009;color:#fff;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:600}
 .gb{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:99px;border:0;background:#fffd;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 2px 8px #0003}.gb.l{left:8px}.gb.r{right:8px}
 .cv{width:100%;aspect-ratio:4/3;max-height:460px;object-fit:cover;border-radius:16px;display:block}
+.tx{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}.tx small{display:block}.tx input{margin:2px 0 6px}
+.txv div{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed #e2e8f0;font-size:14px}.txv div:last-child{border:0}.txv span{color:#64748b}.txv b{color:#0f766e;text-align:right}
 </style></head><body>
 <div class="app" id="v"></div>
 <nav><a href="#/" data-h=""><span>🏠</span>Beranda</a><a href="#/koleksi" data-h="koleksi"><span>🌿</span>Koleksi</a><a href="#/tambah" data-h="tambah"><span>➕</span>Tambah</a><a href="#/aktivitas" data-h="aktivitas"><span>🌟</span>Aktivitas</a><a href="#/tentang" data-h="tentang"><span>📖</span>Tentang</a></nav>
@@ -184,7 +186,7 @@ if(!sessionStorage['v'+id]){sessionStorage['v'+id]=1;API.inc(id,'views');p.views
 return `<a class="btn w" href="#/koleksi">⬅️ Kembali</a><br><br><img class="pimg" src="${th(p.foto,900)}" alt="${esc(p.nama)}">
 <div class="ic"><button class="pill" id="lk" onclick="like('${id}')">${sessionStorage['l'+id]?'❤️':'🤍'} ${p.likes||0}</button><span class="pill">👁️ ${p.views}</span><button class="btn g" style="margin-left:auto" onclick="qr('${id}')">⬇️ Unduh QR</button>${S.admin?`<a class="btn" href="#/edit/${id}">✏️ Edit</a>`:''}</div>
 <div class="panel"><h2>${esc(p.nama)}</h2><i style="color:#64748b">${esc(p.ilmiah)}</i><br><span class="tag">🏷️ ${esc(p.jenis)}</span> <span class="tag" style="background:#fef3c7;color:#b45309">🔢 ${p.jumlah||1} tanaman di sekolah</span></div>
-${SEC.map(([e,t,k])=>p[k]?`<div class="panel"><h3>${e} ${t}${k=='fakta'?' – '+esc(p.nama):''}</h3><p>${esc(p[k])}</p></div>`:'').join('')}`}
+${taxCard(p)}${SEC.map(([e,t,k])=>p[k]?`<div class="panel"><h3>${e} ${t}${k=='fakta'?' – '+esc(p.nama):''}</h3><p>${esc(p[k])}</p></div>`:'').join('')}`}
 
 function like(id){if(sessionStorage['l'+id])return toast('Kamu sudah menyukai tanaman ini 💚');sessionStorage['l'+id]=1;const p=S.plants.find(x=>x.id===id);p.likes=(p.likes||0)+1;API.inc(id,'likes');$('#lk').innerHTML='❤️ '+p.likes;toast('Terima kasih! ❤️')}
 function qr(id){const p=S.plants.find(x=>x.id===id);modal(`<h3>${esc(p.nama)}</h3><div id="qrc" style="display:flex;justify-content:center;margin:14px"></div><small>Pindai untuk melihat informasi tanaman</small><br><br><button class="btn g noprint" onclick="dlQR('${id}')">⬇️ Unduh JPG</button> <button class="btn w noprint" onclick="closeM()">Tutup</button>`);
@@ -197,7 +199,7 @@ function form(p){window.J=p?p.jenis:'';const v=k=>esc(p?p[k]:'');
 const ta=(k,l)=>`<label class="l">${l}</label><textarea id="${k}" rows="3">${v(k)}</textarea>`;
 return `<div class="panel"><h2>${p?'✏️ Edit Tanaman':'➕ Tambah Tanaman'}</h2>
 <label class="l">🌱 Nama tanaman</label><input id="nama" value="${v('nama')}">
-<label class="l">🔬 Nama ilmiah</label><input id="ilmiah" value="${v('ilmiah')}">
+<label class="l">🔬 Nama ilmiah</label><input id="ilmiah" value="${v('ilmiah')}">${taxForm(p)}
 <label class="l">🏷️ Jenis tanaman</label><div class="chips wrap">${S.site.types.map(t=>`<button type="button" class="chip ${t===J?'on':''}" data-t="${esc(t)}" onclick="J=this.dataset.t;document.querySelectorAll('.chips.wrap .chip').forEach(c=>c.classList.toggle('on',c==this))">${esc(t)}</button>`).join('')}</div>
 <label class="l">🔢 Jumlah tanaman ini di sekolah</label><input id="jumlah" type="number" min="1" value="${p?(p.jumlah||1):1}">${ta('manfaat','💊 Manfaat')}${ta('ciri','🔍 Ciri-ciri')}${ta('rawat','💧 Cara perawatan')}${ta('habitat','🏞️ Habitat')}${ta('fakta','✨ Fakta menarik')}${ta('peran','🌍 Peran lingkungan')}
 <label class="l">📷 Foto tanaman ${p?'(kosongkan jika tidak diganti)':''}</label><input type="file" id="foto" accept="image/*">
@@ -205,7 +207,7 @@ return `<div class="panel"><h2>${p?'✏️ Edit Tanaman':'➕ Tambah Tanaman'}</
 async function save(id){const g=i=>$('#'+i).value.trim(),f=$('#foto').files[0];
 if(!g('nama')||!J)return toast('Nama dan jenis wajib diisi');
 const old=id&&S.plants.find(p=>p.id===id);if(!f&&!old)return toast('Foto wajib diunggah');
-const d={nama:g('nama'),jumlah:Math.max(1,parseInt(g('jumlah'))||1),ilmiah:g('ilmiah'),jenis:J,manfaat:g('manfaat'),ciri:g('ciri'),rawat:g('rawat'),habitat:g('habitat'),fakta:g('fakta'),peran:g('peran')};
+const d={nama:g('nama'),jumlah:Math.max(1,parseInt(g('jumlah'))||1),ilmiah:g('ilmiah'),taksonomi:Object.fromEntries(TAX.map(([k])=>[k,g('tx_'+k)])),jenis:J,manfaat:g('manfaat'),ciri:g('ciri'),rawat:g('rawat'),habitat:g('habitat'),fakta:g('fakta'),peran:g('peran')};
 if(f)d.foto=await up(f,700);
 id?await API.upd(id,d):await API.add({...d,likes:0,views:0});
 toast('Tersimpan ✅');await load();location.hash=id?'#/tanaman/'+id:'#/koleksi'}
@@ -242,10 +244,13 @@ if(b=='tentang')return back('📖 Tentang Program')+`<div class="panel"><label c
 if(b=='admin'&&m)return back('👥 Admin &amp; Akun')+`<div class="panel"><label class="l">Username admin utama</label><input id="mu" value="${esc(s.main.u)}"><label class="l">PIN admin utama</label><input id="mp" value="${esc(s.main.p)}"><button class="btn" onclick="setMain()">Ubah</button><br><br><b style="font-size:13px">Admin biasa</b>${s.admins.map((x,i)=>`<div class="row">${esc(x.u)}<button class="btn r" onclick="delAdm(${i})">🗑️</button></div>`).join('')||'<p>Belum ada.</p>'}<br><input id="au" placeholder="Username admin baru"><input id="ap" placeholder="PIN admin baru"><button class="btn g" onclick="addAdm()">➕ Tambah admin</button></div>`;
 return `<div class="gh"><h2>👩‍🏫 Mode Guru</h2><p>Halo, <b>${esc(S.admin.u)}</b> · ${m?'Admin utama':'Admin'} · kelola konten Smart Plant QR di sini.</p></div><div class="gg">${gc('#/guru/gambar','#0ea5e9','🖼️','Gambar Beranda &amp; Logo')}${gc('#/guru/jenis','#8b5cf6','🏷️','Jenis Tanaman')}${gc('#/guru/info','#10b981','🌱','Info Tanaman')}${gc('#/guru/aktivitas','#14b8a6','🌟','Aktivitas')}${gc('#/guru/tentang','#f59e0b','📖','Tentang Program')}${m?gc('#/guru/admin','#ec4899','👥','Admin &amp; Akun'):''}${CLD?gc('#/guru/migrasi','#6366f1','☁️','Pindahkan Foto'):''}<a class="gc" href="#" onclick="logout();return false"><i style="background:#ef4444">🚪</i>Keluar</a></div>`}
 
+const TAX=[['kingdom','Kingdom'],['divisi','Divisi'],['kelas','Kelas'],['ordo','Ordo'],['famili','Famili'],['genus','Genus'],['spesies','Spesies']];
+const taxForm=p=>`<label class="l">🧬 Taksonomi (isi yang diketahui saja)</label><div class="tx">${TAX.map(([k,t])=>`<div><small>${t}</small><input id="tx_${k}" value="${esc(p&&p.taksonomi&&p.taksonomi[k])}"></div>`).join('')}</div>`;
+const taxCard=p=>{const r=TAX.filter(([k])=>p.taksonomi&&p.taksonomi[k]);return r.length?`<div class="panel"><h3>🧬 Taksonomi</h3><div class="txv">${r.map(([k,t])=>`<div><span>${t}</span><b${k=='genus'||k=='spesies'?' style="font-style:italic"':''}>${esc(p.taksonomi[k])}</b></div>`).join('')}</div></div>`:''};
 function detailEdit(p){window.J=p.jenis;
 return `<a class="btn w" href="#/tanaman/${p.id}">⬅️ Batal</a><h2 style="margin:12px 0;color:#0f766e">✏️ Edit Informasi Tanaman</h2>
 <img class="pimg" src="${th(p.foto,700)}" alt=""><div class="panel" style="margin-top:12px"><label class="l">📷 Ganti foto (kosongkan jika tidak diganti)</label><input type="file" id="foto" accept="image/*"></div>
-<div class="panel"><label class="l">🌱 Nama tanaman</label><input id="nama" value="${esc(p.nama)}"><label class="l">🔬 Nama ilmiah</label><input id="ilmiah" value="${esc(p.ilmiah)}"><label class="l">🔢 Jumlah di sekolah</label><input id="jumlah" type="number" min="1" value="${p.jumlah||1}"><label class="l">🏷️ Jenis tanaman</label><div class="chips wrap">${S.site.types.map(t=>`<button type="button" class="chip ${t===J?'on':''}" data-t="${esc(t)}" onclick="J=this.dataset.t;document.querySelectorAll('.chips.wrap .chip').forEach(c=>c.classList.toggle('on',c==this))">${esc(t)}</button>`).join('')}</div></div>
+<div class="panel"><label class="l">🌱 Nama tanaman</label><input id="nama" value="${esc(p.nama)}"><label class="l">🔬 Nama ilmiah</label><input id="ilmiah" value="${esc(p.ilmiah)}">${taxForm(p)}<label class="l">🔢 Jumlah di sekolah</label><input id="jumlah" type="number" min="1" value="${p.jumlah||1}"><label class="l">🏷️ Jenis tanaman</label><div class="chips wrap">${S.site.types.map(t=>`<button type="button" class="chip ${t===J?'on':''}" data-t="${esc(t)}" onclick="J=this.dataset.t;document.querySelectorAll('.chips.wrap .chip').forEach(c=>c.classList.toggle('on',c==this))">${esc(t)}</button>`).join('')}</div></div>
 ${SEC.map(([e,t,k])=>`<div class="panel"><h3>${e} ${t}</h3><textarea id="${k}" rows="4">${esc(p[k])}</textarea></div>`).join('')}
 <button class="btn g" onclick="save('${p.id}')">💾 Simpan perubahan</button> <a class="btn w" href="#/tanaman/${p.id}">Batal</a>`}
 function route(){const[,a,b,c]=(location.hash||'#/').split('/');let v;
